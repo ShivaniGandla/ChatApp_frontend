@@ -5,6 +5,9 @@ const socket = io("https://chatapp-backend-e9z2.onrender.com", {
   transports: ["websocket"],
 });
 
+let savedUsername = localStorage.getItem("username");
+if (!savedUsername) savedUsername = ""; // fallback
+
 function App() {
   const [username, setUsername] = useState(() => localStorage.getItem("username") || "");
   const [input, setInput] = useState("");
