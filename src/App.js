@@ -35,6 +35,10 @@ function App() {
       setTimeout(() => setTypingUser(""), 2000);
     };
 
+    socket.on("previous-messages", (msgs) => {
+      setMessages(msgs);
+    });
+
     socket.on("chat-message", handleMessage);
     socket.on("user-joined", handleUserJoined);
     socket.on("user-left", handleUserLeft);
