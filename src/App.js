@@ -1,108 +1,88 @@
 import React, { useEffect, useState } from "react";
 import { io } from "socket.io-client";
-import "./App.css";
 
 const socket = io("https://chatapp-backend-e9z2.onrender.com", {
-  transports: ["websocket"], // ✅ connect via WebSocket
+  transports: ["websocket"],
 });
 
 function App() {
   const [username, setUsername] = useState("");
-  const [message, setMessage] = useState("");
+  const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
   const [typingUser, setTypingUser] = useState("");
 
   useEffect(() => {
-    socket.on("chat-message", (data) => {
-      setMessages((prev) => [...prev, data]);
-    });
-
-    socket.on("user-joined", (user) => {
-      setMessages((prev) => [...prev, { username: "System", text: `${user} joined the chat` }]);
-    });
-
-    socket.on("user-left", (user) => {
-      setMessages((prev) => [...prev, { username: "System", text: `${user} left the chat` }]);
-    });
-
-    socket.on("typing", (user) => {
-      if (user !== username) {
-        setTypingUser(user);
-        setTimeout(() => setTypingUser(""), 2000);
+    if (!username) {
+      const name = prompt("Enter your username:");
+      if (name) {
+        setUsername(name);
+        socket.emit("user-joined", name);
       }
-    });
+    }
+
+    // Message listener
+    const handleMessage = (data) => {
+      setMessages((prev) => [...prev, data]);
+    };
+
+    // User joined
+    const handleUserJoined = (user) => {
+      setMessages((prev) => [...prev, { username: "System", text: `${user} joined the chat` }]);
+    };
+
+    // User left
+    const handleUserLeft = (user) => {
+      setMessages((prev) => [...prev, { username: "System", text: `${user} left the chat` }]);
+    };
+
+    socket.on("chat-message", handleMessage);
+    socket.on("user-joined", handleUserJoined);
+    socket.on("user-left", handleUserLeft);
 
     return () => {
-      socket.off("chat-message");
-      socket.off("user-joined");
-      socket.off("user-left");
-      socket.off("typing");
+      socket.off("chat-message", handleMessage);
+      socket.off("user-joined", handleUserJoined);
+      socket.off("user-left", handleUserLeft);
     };
   }, [username]);
 
-  const joinChat = () => {
-    if (username.trim()) {
-      socket.emit("user-joined", username);
-    }
-  };
-
   const sendMessage = () => {
-    if (message.trim()) {
-      const data = { username, text: message };
-      socket.emit("send-message", data);
-      setMessages((prev) => [...prev, data]);
-      setMessage("");
+    if (input.trim()) {
+      const msg = { username, text: input };
+      socket.emit("send-message", msg);
+      setMessages((prev) => [...prev, msg]);
+      setInput("");
     }
-  };
-
-  const handleTyping = () => {
-    socket.emit("typing", username);
   };
 
   return (
-    <div className="App">
-      {!username ? (
-        <div className="username-container">
-          <h2>Enter your username</h2>
-          <input
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="Type your name..."
-          />
-          <button onClick={joinChat}>Join Chat</button>
-        </div>
-      ) : (
-        <div className="chat-container">
-          <h2>Welcome, {username} 👋</h2>
+    <div style={{ width: "400px", margin: "50px auto", fontFamily: "Arial, sans-serif" }}>
+      <h2 style={{ textAlign: "center" }}>💬 Real-Time Chat App</h2>
 
-          <div className="messages">
-            {messages.map((msg, index) => (
-              <div
-                key={index}
-                className={`message ${
-                  msg.username === username ? "my-message" : msg.username === "System" ? "system-message" : ""
-                }`}
-              >
-                <strong>{msg.username}:</strong> {msg.text}
-              </div>
-            ))}
+      <div style={{ height: "300px", overflowY: "auto", border: "1px solid #ccc", padding: "10px" }}>
+        {messages.map((msg, i) => (
+          <div key={i}>
+            <strong>{msg.username}:</strong> {msg.text}
           </div>
+        ))}
+      </div>
 
-          {typingUser && <p className="typing">{typingUser} is typing...</p>}
-
-          <div className="input-container">
-            <input
-              type="text"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyPress={handleTyping}
-              placeholder="Type a message..."
-            />
-            <button onClick={sendMessage}>Send</button>
-          </div>
-        </div>
-      )}
+      <div style={{ marginTop: "15px", display: "flex" }}>
+        <input
+          style={{ flex: 1, padding: "8px", borderRadius: "5px", border: "1px solid #ccc" }}
+          type="text"
+          placeholder="Type a message..."
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+        />
+        <button
+          style={{ marginLeft: "10px", padding: "8px 15px", borderRadius: "5px", backgroundColor: "#4CAF50", color: "#fff", border: "none", cursor: "pointer" }}
+          onClick={sendMessage}
+        >
+          Send
+        </button>
+      </div>
     </div>
   );
 }
