@@ -13,27 +13,25 @@ function App() {
   const [typingUser, setTypingUser] = useState("");
 
   useEffect(() => {
-    // ✅ Receive old messages (persistence)
+    // Previous messages
     socket.on("previous-messages", (msgs) => {
       setMessages(msgs.map((msg) => ({ username: msg.username, text: msg.text })));
     });
 
-    // ✅ Receive new messages
-    socket.on("chat-message", (data) => {
-      setMessages((prev) => [...prev, data]);
-    });
+    // New message
+    socket.on("chat-message", (data) => setMessages((prev) => [...prev, data]));
 
-    // ✅ User joined
-    socket.on("user-joined", (user) => {
-      setMessages((prev) => [...prev, { username: "System", text: `${user} joined the chat` }]);
-    });
+    // User joined
+    socket.on("user-joined", (user) =>
+      setMessages((prev) => [...prev, { username: "System", text: `${user} joined the chat` }])
+    );
 
-    // ✅ User left
-    socket.on("user-left", (user) => {
-      setMessages((prev) => [...prev, { username: "System", text: `${user} left the chat` }]);
-    });
+    // User left
+    socket.on("user-left", (user) =>
+      setMessages((prev) => [...prev, { username: "System", text: `${user} left the chat` }])
+    );
 
-    // ✅ Typing indicator
+    // Typing indicator
     socket.on("typing", (user) => {
       if (user !== username) {
         setTypingUser(user);
@@ -51,18 +49,15 @@ function App() {
   }, [username]);
 
   const joinChat = () => {
-    if (username.trim()) {
-      socket.emit("user-joined", username);
-    }
+    if (username.trim()) socket.emit("user-joined", username);
   };
 
   const sendMessage = () => {
-    if (message.trim()) {
-      const data = { username, text: message };
-      socket.emit("send-message", data);
-      setMessages((prev) => [...prev, data]);
-      setMessage("");
-    }
+    if (!message.trim()) return;
+    const data = { username, text: message };
+    socket.emit("send-message", data);
+    setMessages((prev) => [...prev, data]);
+    setMessage("");
   };
 
   const handleTyping = () => {
@@ -85,11 +80,10 @@ function App() {
       ) : (
         <div className="chat-container">
           <h2>Welcome, {username} 👋</h2>
-
           <div className="messages">
-            {messages.map((msg, index) => (
+            {messages.map((msg, i) => (
               <div
-                key={index}
+                key={i}
                 className={`message ${
                   msg.username === username ? "my-message" : msg.username === "System" ? "system-message" : ""
                 }`}
