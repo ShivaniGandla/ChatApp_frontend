@@ -9,7 +9,6 @@ function App() {
   const [username, setUsername] = useState("");
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
-  const [typingUser, setTypingUser] = useState("");
 
   useEffect(() => {
     if (!username) {
@@ -20,19 +19,25 @@ function App() {
       }
     }
 
-    // Message listener
+    // ✅ Message listener
     const handleMessage = (data) => {
       setMessages((prev) => [...prev, data]);
     };
 
-    // User joined
+    // ✅ User joined
     const handleUserJoined = (user) => {
-      setMessages((prev) => [...prev, { username: "System", text: `${user} joined the chat` }]);
+      setMessages((prev) => [
+        ...prev,
+        { username: "System", text: `${user} joined the chat` },
+      ]);
     };
 
-    // User left
+    // ✅ User left
     const handleUserLeft = (user) => {
-      setMessages((prev) => [...prev, { username: "System", text: `${user} left the chat` }]);
+      setMessages((prev) => [
+        ...prev,
+        { username: "System", text: `${user} left the chat` },
+      ]);
     };
 
     socket.on("chat-message", handleMessage);
@@ -59,7 +64,15 @@ function App() {
     <div style={{ width: "400px", margin: "50px auto", fontFamily: "Arial, sans-serif" }}>
       <h2 style={{ textAlign: "center" }}>💬 Real-Time Chat App</h2>
 
-      <div style={{ height: "300px", overflowY: "auto", border: "1px solid #ccc", padding: "10px" }}>
+      <div
+        style={{
+          height: "300px",
+          overflowY: "auto",
+          border: "1px solid #ccc",
+          padding: "10px",
+          backgroundColor: "#fff",
+        }}
+      >
         {messages.map((msg, i) => (
           <div key={i}>
             <strong>{msg.username}:</strong> {msg.text}
@@ -77,7 +90,15 @@ function App() {
           onKeyDown={(e) => e.key === "Enter" && sendMessage()}
         />
         <button
-          style={{ marginLeft: "10px", padding: "8px 15px", borderRadius: "5px", backgroundColor: "#4CAF50", color: "#fff", border: "none", cursor: "pointer" }}
+          style={{
+            marginLeft: "10px",
+            padding: "8px 15px",
+            borderRadius: "5px",
+            backgroundColor: "#4CAF50",
+            color: "#fff",
+            border: "none",
+            cursor: "pointer",
+          }}
           onClick={sendMessage}
         >
           Send
