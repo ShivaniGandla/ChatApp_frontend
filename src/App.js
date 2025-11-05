@@ -1,62 +1,49 @@
 import React, { useEffect, useState } from "react";
 import { io } from "socket.io-client";
 
-// Connect to your deployed backend
 const socket = io("https://chatapp-backend-e9z2.onrender.com", {
   transports: ["websocket"],
 });
 
 function App() {
-  const [username, setUsername] = useState("");
+  const [username, setUsername] = useState(() => localStorage.getItem("username") || "");
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
   const [typingUser, setTypingUser] = useState("");
 
-  // On mount: load username from localStorage or prompt once
+  // Prompt only if username is not in localStorage
   useEffect(() => {
-    let storedName = localStorage.getItem("username");
-    if (!storedName) {
-      const name = prompt("Enter your username:");
-      if (name) {
-        storedName = name.trim();
-        localStorage.setItem("username", storedName);
-      } else {
-        storedName = "Anonymous";
-      }
+    if (!username) {
+      const name = prompt("Enter your username:") || "Anonymous";
+      setUsername(name);
+      localStorage.setItem("username", name);
+      socket.emit("user-joined", name);
+    } else {
+      socket.emit("user-joined", username);
     }
-    setUsername(storedName);
-    socket.emit("user-joined", storedName);
-
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Socket listeners
   useEffect(() => {
-    const handleMessage = (data) => setMessages((prev) => [...prev, data]);
-
-    const handleUserJoined = (user) =>
-      setMessages((prev) => [...prev, { username: "System", text: `${user} joined the chat` }]);
-
-    const handleUserLeft = (user) =>
-      setMessages((prev) => [...prev, { username: "System", text: `${user} left the chat` }]);
-
-    const handleTyping = (user) => {
+    socket.on("chat-message", (data) => setMessages((prev) => [...prev, data]));
+    socket.on("user-joined", (user) =>
+      setMessages((prev) => [...prev, { username: "System", text: `${user} joined the chat` }])
+    );
+    socket.on("user-left", (user) =>
+      setMessages((prev) => [...prev, { username: "System", text: `${user} left the chat` }])
+    );
+    socket.on("typing", (user) => {
       if (user !== username) {
         setTypingUser(user);
         setTimeout(() => setTypingUser(""), 2000);
       }
-    };
-
-    socket.on("chat-message", handleMessage);
-    socket.on("user-joined", handleUserJoined);
-    socket.on("user-left", handleUserLeft);
-    socket.on("typing", handleTyping);
+    });
 
     return () => {
-      socket.off("chat-message", handleMessage);
-      socket.off("user-joined", handleUserJoined);
-      socket.off("user-left", handleUserLeft);
-      socket.off("typing", handleTyping);
+      socket.off("chat-message");
+      socket.off("user-joined");
+      socket.off("user-left");
+      socket.off("typing");
     };
   }, [username]);
 
@@ -64,13 +51,12 @@ function App() {
     if (!input.trim()) return;
     const msg = { username, text: input };
     socket.emit("send-message", msg);
-    setMessages((prev) => [...prev, msg]);
-    setInput("");
+    setInput(""); // only clear input, don’t update messages here
   };
 
-  const handleTyping = () => {
-    socket.emit("typing", username);
-  };
+  const handleTyping = () => socket.emit("typing", username);
+
+  if (!username) return null; // don’t render anything until username exists
 
   return (
     <div style={styles.container}>
