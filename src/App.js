@@ -1,36 +1,45 @@
 import React, { useEffect, useState } from "react";
 import { io } from "socket.io-client";
 
+// Connect to your deployed backend
 const socket = io("https://chatapp-backend-e9z2.onrender.com", {
   transports: ["websocket"],
 });
 
 function App() {
-  const [username, setUsername] = useState(localStorage.getItem("username") || "");
+  const [username, setUsername] = useState("");
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
   const [typingUser, setTypingUser] = useState("");
 
+  // On mount: load username from localStorage or prompt once
   useEffect(() => {
-    // Prompt for username only if not saved
-    if (!username) {
+    let storedName = localStorage.getItem("username");
+    if (!storedName) {
       const name = prompt("Enter your username:");
       if (name) {
-        setUsername(name);
-        localStorage.setItem("username", name);
-        socket.emit("user-joined", name);
+        storedName = name.trim();
+        localStorage.setItem("username", storedName);
+      } else {
+        storedName = "Anonymous";
       }
-    } else {
-      socket.emit("user-joined", username);
     }
+    setUsername(storedName);
+    socket.emit("user-joined", storedName);
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Socket listeners
   useEffect(() => {
     const handleMessage = (data) => setMessages((prev) => [...prev, data]);
+
     const handleUserJoined = (user) =>
       setMessages((prev) => [...prev, { username: "System", text: `${user} joined the chat` }]);
+
     const handleUserLeft = (user) =>
       setMessages((prev) => [...prev, { username: "System", text: `${user} left the chat` }]);
+
     const handleTyping = (user) => {
       if (user !== username) {
         setTypingUser(user);
@@ -64,46 +73,90 @@ function App() {
   };
 
   return (
-    <div style={{ width: "400px", margin: "50px auto", fontFamily: "Arial, sans-serif" }}>
-      <h2 style={{ textAlign: "center" }}>💬 Real-Time Chat App</h2>
+    <div style={styles.container}>
+      <h2 style={styles.header}>💬 Real-Time Chat App</h2>
 
-      <div style={{ height: "300px", overflowY: "auto", border: "1px solid #ccc", padding: "10px", backgroundColor: "#fff" }}>
+      <div style={styles.chatBox}>
         {messages.map((msg, i) => (
-          <div key={i}>
+          <div
+            key={i}
+            style={{
+              marginBottom: "10px",
+              fontWeight: msg.username === "System" ? "bold" : "normal",
+              color: msg.username === username ? "#4CAF50" : "#000",
+            }}
+          >
             <strong>{msg.username}:</strong> {msg.text}
           </div>
         ))}
       </div>
 
-      {typingUser && <p style={{ fontStyle: "italic" }}>{typingUser} is typing...</p>}
+      {typingUser && <p style={styles.typing}>{typingUser} is typing...</p>}
 
-      <div style={{ marginTop: "15px", display: "flex" }}>
+      <div style={styles.inputContainer}>
         <input
+          style={styles.input}
           type="text"
+          placeholder="Type a message..."
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleTyping}
           onKeyUp={(e) => e.key === "Enter" && sendMessage()}
-          style={{ flex: 1, padding: "8px", borderRadius: "5px", border: "1px solid #ccc" }}
-          placeholder="Type a message..."
         />
-        <button
-          onClick={sendMessage}
-          style={{
-            marginLeft: "10px",
-            padding: "8px 15px",
-            borderRadius: "5px",
-            border: "none",
-            backgroundColor: "#4CAF50",
-            color: "#fff",
-            cursor: "pointer",
-          }}
-        >
+        <button style={styles.button} onClick={sendMessage}>
           Send
         </button>
       </div>
     </div>
   );
 }
+
+const styles = {
+  container: {
+    width: "400px",
+    margin: "50px auto",
+    padding: "20px",
+    border: "2px solid #ddd",
+    borderRadius: "10px",
+    fontFamily: "Arial, sans-serif",
+    backgroundColor: "#f9f9f9",
+  },
+  header: {
+    textAlign: "center",
+    marginBottom: "20px",
+  },
+  chatBox: {
+    height: "300px",
+    overflowY: "auto",
+    border: "1px solid #ccc",
+    borderRadius: "5px",
+    padding: "10px",
+    backgroundColor: "#fff",
+  },
+  typing: {
+    color: "#555",
+    fontStyle: "italic",
+    marginTop: "5px",
+  },
+  inputContainer: {
+    display: "flex",
+    marginTop: "15px",
+  },
+  input: {
+    flex: 1,
+    padding: "8px",
+    borderRadius: "5px",
+    border: "1px solid #ccc",
+  },
+  button: {
+    marginLeft: "10px",
+    padding: "8px 15px",
+    borderRadius: "5px",
+    border: "none",
+    backgroundColor: "#4CAF50",
+    color: "#fff",
+    cursor: "pointer",
+  },
+};
 
 export default App;
