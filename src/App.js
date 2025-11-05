@@ -10,38 +10,31 @@ function App() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
   const [typingUser, setTypingUser] = useState("");
+  const [joined, setJoined] = useState(false); // track if user has joined
 
+  // 🟢 Socket listeners
   useEffect(() => {
-    // ✅ Get username from localStorage or ask user
-    let name = localStorage.getItem("username");
-    if (!name) {
-      name = prompt("Enter your username:");
-      if (name) {
-        localStorage.setItem("username", name);
-      }
-    }
-    setUsername(name);
-    socket.emit("user-joined", name);
-
-    // ✅ Receive previous messages (persistence)
+    // Previous messages (persistence)
     socket.on("previous-messages", (msgs) => {
       setMessages(msgs.map((msg) => ({ username: msg.username, text: msg.text })));
     });
 
-    // ✅ Receive new messages
+    // New messages
     socket.on("chat-message", (msg) => {
       setMessages((prev) => [...prev, msg]);
     });
 
-    // ✅ User joined/left notifications
+    // User joined
     socket.on("user-joined", (user) => {
       setMessages((prev) => [...prev, { username: "System", text: `${user} joined the chat` }]);
     });
+
+    // User left
     socket.on("user-left", (user) => {
       setMessages((prev) => [...prev, { username: "System", text: `${user} left the chat` }]);
     });
 
-    // ✅ Typing indicator
+    // Typing indicator
     socket.on("typing", (user) => {
       if (user !== username) {
         setTypingUser(user);
@@ -49,7 +42,6 @@ function App() {
       }
     });
 
-    // ✅ Cleanup on unmount
     return () => {
       socket.off("previous-messages");
       socket.off("chat-message");
@@ -59,17 +51,59 @@ function App() {
     };
   }, [username]);
 
-  const sendMessage = () => {
-    if (input.trim()) {
-      const msg = { username, text: input };
-      socket.emit("send-message", msg); // backend broadcasts it
-      setInput(""); // clear input
+  // 🟢 Join chat handler
+  const joinChat = () => {
+    if (username.trim().length >= 2) { // minimum 2 chars to join
+      setJoined(true);
+      socket.emit("user-joined", username);
+    } else {
+      alert("Username must be at least 2 characters.");
     }
   };
 
-  const handleTyping = () => {
-    socket.emit("typing", username);
+  // 🟢 Send message
+  const sendMessage = () => {
+    if (input.trim()) {
+      const msg = { username, text: input };
+      socket.emit("send-message", msg);
+      setInput("");
+    }
   };
+
+  // 🟢 Handle typing
+  const handleTyping = () => {
+    if (username) socket.emit("typing", username);
+  };
+
+  // 🟢 UI
+  if (!joined) {
+    return (
+      <div style={{ width: "400px", margin: "50px auto", textAlign: "center" }}>
+        <h2>Enter your username</h2>
+        <input
+          type="text"
+          placeholder="Type your name..."
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          style={{ padding: "8px", width: "80%", marginBottom: "10px" }}
+        />
+        <br />
+        <button
+          onClick={joinChat}
+          style={{
+            padding: "8px 15px",
+            borderRadius: "5px",
+            backgroundColor: "#4CAF50",
+            color: "#fff",
+            border: "none",
+            cursor: "pointer",
+          }}
+        >
+          Join Chat
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div style={{ width: "400px", margin: "50px auto", fontFamily: "Arial, sans-serif" }}>
