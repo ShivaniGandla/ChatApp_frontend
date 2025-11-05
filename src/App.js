@@ -1,86 +1,75 @@
 import React, { useEffect, useState } from "react";
 import { io } from "socket.io-client";
 
+// Connect to your backend
 const socket = io("https://chatapp-backend-e9z2.onrender.com", {
   transports: ["websocket"],
 });
 
 function App() {
-  const [username, setUsername] = useState(localStorage.getItem("username") || "");
-  const [tempUsername, setTempUsername] = useState("");
+  const [username, setUsername] = useState("");
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
   const [typingUser, setTypingUser] = useState("");
 
   useEffect(() => {
-    // ✅ Listen for messages from server
-    const handleMessage = (data) => {
-      setMessages((prev) => [...prev, data]);
-    };
+    // Ask username only if not already set
+    if (!username) {
+      const name = prompt("Enter your username:");
+      if (name) {
+        setUsername(name);
+        socket.emit("user-joined", name);
+      }
+    }
 
-    const handleUserJoined = (user) => {
-      setMessages((prev) => [...prev, { username: "System", text: `${user} joined the chat` }]);
-    };
+    // ✅ Receive previous messages from backend
+    socket.on("previous-messages", (msgs) => {
+      setMessages(msgs.map((msg) => ({ username: msg.username, text: msg.text })));
+    });
 
-    const handleUserLeft = (user) => {
-      setMessages((prev) => [...prev, { username: "System", text: `${user} left the chat` }]);
-    };
+    // ✅ Receive new messages
+    socket.on("chat-message", (data) => setMessages((prev) => [...prev, data]));
 
-    const handleTyping = (user) => {
+    // ✅ User joined
+    socket.on("user-joined", (user) =>
+      setMessages((prev) => [...prev, { username: "System", text: `${user} joined the chat` }])
+    );
+
+    // ✅ User left
+    socket.on("user-left", (user) =>
+      setMessages((prev) => [...prev, { username: "System", text: `${user} left the chat` }])
+    );
+
+    // ✅ Typing indicator
+    socket.on("typing", (user) => {
       if (user !== username) {
         setTypingUser(user);
         setTimeout(() => setTypingUser(""), 2000);
       }
-    };
+    });
 
-    socket.on("chat-message", handleMessage);
-    socket.on("user-joined", handleUserJoined);
-    socket.on("user-left", handleUserLeft);
-    socket.on("typing", handleTyping);
-
+    // Cleanup listeners
     return () => {
-      socket.off("chat-message", handleMessage);
-      socket.off("user-joined", handleUserJoined);
-      socket.off("user-left", handleUserLeft);
-      socket.off("typing", handleTyping);
+      socket.off("previous-messages");
+      socket.off("chat-message");
+      socket.off("user-joined");
+      socket.off("user-left");
+      socket.off("typing");
     };
   }, [username]);
 
-  // ✅ Emit join only when user clicks "Join"
-  const joinChat = () => {
-    const name = tempUsername.trim();
-    if (!name) return;
-    setUsername(name);
-    localStorage.setItem("username", name);
-    socket.emit("user-joined", name);
-  };
-
   const sendMessage = () => {
-    if (!input.trim()) return;
-    const msg = { username, text: input };
-    socket.emit("send-message", msg);
-    setInput(""); // do not add locally, server will emit back
+    if (input.trim()) {
+      const msg = { username, text: input };
+      socket.emit("send-message", msg); // Send to backend
+      setMessages((prev) => [...prev, msg]); // Optimistically add
+      setInput("");
+    }
   };
 
   const handleTyping = () => {
     socket.emit("typing", username);
   };
-
-  if (!username) {
-    // ✅ Show username form if not set
-    return (
-      <div style={{ width: "400px", margin: "50px auto", fontFamily: "Arial, sans-serif" }}>
-        <h2>Enter your username</h2>
-        <input
-          type="text"
-          placeholder="Type your name..."
-          value={tempUsername}
-          onChange={(e) => setTempUsername(e.target.value)}
-        />
-        <button onClick={joinChat}>Join Chat</button>
-      </div>
-    );
-  }
 
   return (
     <div style={{ width: "400px", margin: "50px auto", fontFamily: "Arial, sans-serif" }}>
@@ -88,13 +77,20 @@ function App() {
 
       <div style={{ height: "300px", overflowY: "auto", border: "1px solid #ccc", padding: "10px" }}>
         {messages.map((msg, i) => (
-          <div key={i}>
+          <div
+            key={i}
+            style={{
+              margin: "5px 0",
+              fontWeight: msg.username === "System" ? "bold" : "normal",
+              color: msg.username === username ? "#4CAF50" : "#000",
+            }}
+          >
             <strong>{msg.username}:</strong> {msg.text}
           </div>
         ))}
       </div>
 
-      {typingUser && <p style={{ fontStyle: "italic" }}>{typingUser} is typing...</p>}
+      {typingUser && <p>{typingUser} is typing...</p>}
 
       <div style={{ marginTop: "15px", display: "flex" }}>
         <input
@@ -103,8 +99,10 @@ function App() {
           placeholder="Type a message..."
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyPress={handleTyping}
-          onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+          onKeyPress={(e) => {
+            handleTyping();
+            if (e.key === "Enter") sendMessage();
+          }}
         />
         <button
           style={{
